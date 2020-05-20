@@ -126,7 +126,7 @@ TIMEOUT_MESSAGE="If you don't connect to this session, it will be *SKIPPED* in $
 if [[ -n "$TELEGRAM_TOKEN" ]]; then
   MSG="SSH: ${SSH_LINE}\nWEB: ${WEB_LINE}"
   echo -n "Sending information to Telegram Bot......"
-  curl -k --data chat_id="${{ secrets.TELEGRAM_TO }}" --data "text=```\n$MSG\n```\n${TIMEOUT_MESSAGE}" "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage"
+  curl -k --data chat_id="${TELEGRAM_TO}" --data "text=```\n$MSG\n```\n${TIMEOUT_MESSAGE}" "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage"
   echo ""
 fi
 
