@@ -50,20 +50,13 @@ if [[ -n "$SKIP_DEBUGGER" ]]; then
   exit
 fi
 
-if [ -z "${TMATE_ENCRYPT_PASSWORD}" ] && [ -z "${SLACK_WEBHOOK_URL}" ]; then
-  echo "::error::You should set either TMATE_ENCRYPT_PASSWORD or SLACK_WEBHOOK_URL enviroment variables for safety of your secret information, refer to ${README_URL_SHORT}" >&2
-  exit 1
-fi
-
 # Install tmate on macOS or Ubuntu
 echo Setting up tmate and openssl...
 if [ -x "$(command -v brew)" ]; then
   brew install tmate > /tmp/brew.log
-  [ -z "${TMATE_ENCRYPT_PASSWORD}" ] || ( command -v openssl > /dev/null 2>&1 || brew install openssl )
 fi
 if [ -x "$(command -v apt-get)" ]; then
   "${SCRIPT_DIR}/tmate.sh"
-  [ -z "${TMATE_ENCRYPT_PASSWORD}" ] || ( command -v openssl > /dev/null 2>&1 || sudo apt-get -q -yy install openssl )
 fi
 
 # Generate ssh key if needed
@@ -122,21 +115,18 @@ fi
 
 SSH_LINE="$(tmate -S "${TMATE_SOCK}" display -p '#{tmate_ssh}')"
 WEB_LINE="$(tmate -S "${TMATE_SOCK}" display -p '#{tmate_web}')"
-if [ -n "${TMATE_ENCRYPT_PASSWORD}" ]; then
-  SSH_ENC="$(echo -n "${SSH_LINE}" | openssl enc -e -aes-256-cbc -md md5 -base64 -A -pass pass:"${TMATE_ENCRYPT_PASSWORD}")"
-  WEB_ENC="$(echo -n "${WEB_LINE}" | openssl enc -e -aes-256-cbc -md md5 -base64 -A -pass pass:"${TMATE_ENCRYPT_PASSWORD}")"
-  SSH_ENC_URI="$(uriencode "${SSH_ENC}")"
-  WEB_ENC_URI="$(uriencode "${WEB_ENC}")"
-  # Shorten this URL to avoid mask by Github Actions Runner
-  ENC_URL="https://tete1030.github.io/safe-debugger-action/?ssh=${SSH_ENC_URI}&web=${WEB_ENC_URI}"
-  ENC_URL_SHORT="$(curl -si https://git.io -F "url=${ENC_URL}" | tr -d '\r' | sed -En 's/^Location: (.*)/\1/p')"
-fi
+
+  MSG="SSH: ${SSH_LINE}\nWEB: ${WEB_LINE}"
+
+  echo -e "    SSH:\e[32m ${SSH_LINE} \e[0m"
+  echo -e "    Web:\e[32m ${WEB_LINE} \e[0m"
+
 TIMEOUT_MESSAGE="If you don't connect to this session, it will be *SKIPPED* in ${timeout} seconds at ${kill_date}. To skip this step now, simply connect the ssh and exit."
 
-if [[ -n "$SLACK_WEBHOOK_URL" ]]; then
+if [[ -n "$TELEGRAM_TOKEN" ]]; then
   MSG="SSH: ${SSH_LINE}\nWEB: ${WEB_LINE}"
-  echo -n "Sending information to Slack......"
-  curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"\`\`\`\n$MSG\n\`\`\`\n${TIMEOUT_MESSAGE}\"}" "$SLACK_WEBHOOK_URL"
+  echo -n "Sending information to Telegram Bot......"
+  curl -k --data chat_id="${{ secrets.TELEGRAM_TO }}" --data "text=```\n$MSG\n```\n${TIMEOUT_MESSAGE}" "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage"
   echo ""
 fi
 
@@ -170,19 +160,10 @@ while [ -S "${TMATE_SOCK}" ]; do
 
   if (( timecounter % display_int == 0 )); then
     echo "You can connect to this session in a terminal or browser"
-    if [ -n "${TMATE_ENCRYPT_PASSWORD}" ]; then
       echo "The following are encrypted debugger connection info"
-      echo -e "    SSH:\e[32m ${SSH_ENC} \e[0m"
-      echo -e "    Web:\e[32m ${WEB_ENC} \e[0m"
-      echo "To decrypt, open the following address and type in your password"
-      echo "    ${ENC_URL_SHORT}"
-      echo "Or run"
-      echo -e '    echo "\e[33mENCRYPTED_STRING\e[0m" | openssl enc -d -base64 -A -aes-256-cbc -md md5 -pass pass:"\e[33mTMATE_ENCRYPT_PASSWORD\e[0m"'
-    else
-      echo "You have not configured TMATE_ENCRYPT_PASSWORD for encrypting sensitive information"
-      echo "The debugger connection info is only sent to your Slack through SLACK_WEBHOOK_URL"
-      echo "For detail, refer to ${README_URL_SHORT}"
-    fi
+      echo -e "    SSH:\e[32m ${SSH_LINE} \e[0m"
+      echo -e "    Web:\e[32m ${WEB_LINE} \e[0m"
+	  
     [ "x${user_connected}" != "x1" ] && (
       echo -e "\nIf you don't connect to this session, it will be \e[31mSKIPPED\e[0m in $(( timeout-timecounter )) seconds at ${kill_date}"
       echo "To skip this step now, simply connect the ssh and exit."
