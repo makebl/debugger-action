@@ -122,12 +122,12 @@ WEB_LINE="$(tmate -S "${TMATE_SOCK}" display -p '#{tmate_web}')"
   echo -e "    Web:\e[32m ${WEB_LINE} \e[0m"
 
 TIMEOUT_MESSAGE="If you don't connect to this session, it will be *SKIPPED* in ${timeout} seconds at ${kill_date}. To skip this step now, simply connect the ssh and exit."
-  [ ! -f /tmp/keepalive ] && echo -e "After connecting you can run 'touch /tmp/keepalive' to disable the 30m timeout"
-  echo -e "$TIMEOUT_MESSAGE"
+echo -e "$TIMEOUT_MESSAGE"
+
 if [[ -n "$TELEGRAM_TOKEN" ]]; then
   MSG="SSH: ${SSH_LINE}\nWEB: ${WEB_LINE}"
   echo -n "Sending information to Telegram Bot......"
-  curl -k --data chat_id="${TELEGRAM_TO}" --data "text=SSH: ${SSH_LINE}  WEB: ${WEB_LINE}  After connecting you can run 'touch /tmp/keepalive' to disable the 30m timeout" "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage"
+  curl -k --data chat_id="${TELEGRAM_TO}" --data "text=SSH: ${SSH_LINE}  WEB: ${WEB_LINE}" "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage"
   echo ""
 fi
 
